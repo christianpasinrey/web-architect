@@ -2,6 +2,11 @@
 import { ref, reactive } from 'vue';
 import { router } from '@inertiajs/vue3';
 import type { FieldType } from '@/types/model';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps<{
     fieldTypes: FieldType[];
@@ -14,10 +19,16 @@ const emits = defineEmits<{
 interface Field {
   name: string;
   type: string;
+  label?: string;
+  default?: string;
   nullable?: boolean;
   unique?: boolean;
   index?: boolean;
-  default?: string;
+  primary?: boolean;
+  auto_increment?: boolean;
+  foreign?: boolean;
+  foreign_table?: string;
+  foreign_key?: string;
 }
 
 type ModifierType = 'concatenar' | 'formatear_fecha' | 'sumar' | 'restar' | 'multiplicar' | 'dividir';
@@ -95,13 +106,24 @@ const FIELD_TYPES = computed(() => {
 const model = reactive({
   name: '',
   table: '',
+  description: '',
   fillable: [] as Field[],
   appends: [] as AttributeModifier[],
   casts: [] as { key: string; type: string }[],
   relations: [] as Relation[],
 });
 
-const newField = reactive<Field>({ name: '', type: '' });
+const newField = reactive<Field>({
+  name: '',
+  type: '',
+  label: '',
+  nullable: false,
+  unique: false,
+  index: false,
+  primary: false,
+  auto_increment: false,
+  foreign: false
+});
 const newModifier = reactive<any>({
   name: '',
   fields: [],
@@ -131,9 +153,28 @@ const availableFields = computed(() => {
 
 function addField() {
   if (newField.name && newField.type) {
+    // Generar label automáticamente si no se proporciona
+    if (!newField.label) {
+      newField.label = newField.name.split('_').map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+    }
+
     model.fillable.push({ ...newField });
+
+    // Reset
     newField.name = '';
     newField.type = '';
+    newField.label = '';
+    newField.nullable = false;
+    newField.unique = false;
+    newField.index = false;
+    newField.primary = false;
+    newField.auto_increment = false;
+    newField.foreign = false;
+    newField.default = undefined;
+    newField.foreign_table = undefined;
+    newField.foreign_key = undefined;
   }
 }
 function removeField(idx: number) {
@@ -238,153 +279,275 @@ function submit() {
 }
 </script>
 <template>
-  <div class="max-w-2xl mx-auto p-8 bg-white rounded-2xl shadow-lg border border-gray-100">
-    <h2 class="text-3xl font-bold mb-8 text-gray-800 tracking-tight">Crear nuevo modelo</h2>
+  <div class="max-w-4xl mx-auto p-8 mt-8 bg-card rounded-2xl shadow-lg border border-border">
+    <h2 class="text-3xl font-bold mb-8 text-foreground tracking-tight">Crear nuevo modelo</h2>
     <form @submit.prevent="submit" class="space-y-8">
       <!-- Datos básicos -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label class="block text-gray-700 font-semibold mb-1">Nombre del modelo</label>
-          <input v-model="model.name" class="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 px-4 py-2 transition" placeholder="Ej: Booking" />
-          <span v-if="errors.name" class="text-red-500 text-xs mt-1 block">{{ errors.name }}</span>
+        <div class="space-y-2">
+          <Label for="model-name">Nombre del modelo</Label>
+          <Input
+            id="model-name"
+            v-model="model.name"
+            placeholder="Ej: Booking"
+          />
+          <span v-if="errors.name" class="text-destructive text-xs">{{ errors.name }}</span>
         </div>
-        <div>
-          <label class="block text-gray-700 font-semibold mb-1">Nombre de la tabla</label>
-          <input v-model="model.table" class="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 px-4 py-2 transition" placeholder="Ej: bookings" />
-          <span v-if="errors.table" class="text-red-500 text-xs mt-1 block">{{ errors.table }}</span>
+        <div class="space-y-2">
+          <Label for="table-name">Nombre de la tabla</Label>
+          <Input
+            id="table-name"
+            v-model="model.table"
+            placeholder="Ej: bookings"
+          />
+          <span v-if="errors.table" class="text-destructive text-xs">{{ errors.table }}</span>
         </div>
+      </div>
+
+      <!-- Descripción del modelo -->
+      <div class="space-y-2 mb-6">
+        <Label for="model-description">Descripción del modelo (opcional)</Label>
+        <Textarea
+          id="model-description"
+          v-model="model.description"
+          placeholder="Describe brevemente el propósito de este modelo..."
+          :rows="3"
+          class="resize-none"
+        />
       </div>
 
       <!-- Campos fillable -->
-      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-2">
-        <div class="flex items-center justify-between mb-2">
-          <label class="block text-gray-700 font-semibold">Campos <span class="text-xs text-gray-400">(fillable)</span></label>
+      <div class="bg-white/50 dark:bg-black/20 backdrop-blur-sm border border-border rounded-xl p-6 mb-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <Label class="text-base font-semibold">Campos <span class="text-xs text-muted-foreground">(fillable)</span></Label>
         </div>
-        <div class="flex flex-col md:flex-row gap-2 mb-3">
-          <input v-model="newField.name" class="rounded-lg border border-gray-300 px-3 py-1 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition w-full md:w-1/2" placeholder="Nombre" />
-          <select v-model="newField.type" class="rounded-lg border border-gray-300 px-3 py-1 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition w-full md:w-1/2">
-            <option value="" disabled>Selecciona tipo</option>
-            <option v-for="type in FIELD_TYPES" :key="type.value" :value="type.value">{{ type.label }}</option>
-          </select>
-          <button type="button" class="btn btn-primary px-4 py-1 rounded-lg shadow-sm hover:bg-primary-600 transition" @click="addField">Agregar</button>
+
+        <!-- Formulario para agregar campos -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4 p-4">
+          <div class="space-y-2">
+            <Label class="text-xs">Nombre del campo</Label>
+            <Input v-model="newField.name" placeholder="ej: user_id" />
+          </div>
+          <div class="space-y-2">
+            <Label class="text-xs">Tipo</Label>
+            <Select v-model="newField.type" :options="FIELD_TYPES" placeholder="Selecciona tipo" />
+          </div>
+          <div class="space-y-2">
+            <Label class="text-xs">Label (opcional)</Label>
+            <Input v-model="newField.label" placeholder="ej: User ID" />
+          </div>
+
+          <!-- Checkboxes para propiedades -->
+          <div class="md:col-span-2 lg:col-span-3">
+            <Label class="text-xs mb-2 block">Propiedades</Label>
+            <div class="flex flex-wrap gap-4">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input v-model="newField.nullable" type="checkbox" class="rounded border-border bg-input text-primary focus:ring-ring" />
+                <span class="text-sm text-foreground">Nullable</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input v-model="newField.unique" type="checkbox" class="rounded border-border bg-input text-primary focus:ring-ring" />
+                <span class="text-sm text-foreground">Unique</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input v-model="newField.index" type="checkbox" class="rounded border-border bg-input text-primary focus:ring-ring" />
+                <span class="text-sm text-foreground">Index</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input v-model="newField.primary" type="checkbox" class="rounded border-border bg-input text-primary focus:ring-ring" />
+                <span class="text-sm text-foreground">Primary</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input v-model="newField.auto_increment" type="checkbox" class="rounded border-border bg-input text-primary focus:ring-ring" />
+                <span class="text-sm text-foreground">Auto Increment</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input v-model="newField.foreign" type="checkbox" class="rounded border-border bg-input text-primary focus:ring-ring" />
+                <span class="text-sm text-foreground">Foreign Key</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Campos adicionales para FK -->
+          <div v-if="newField.foreign" class="md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <Label class="text-xs">Tabla referenciada</Label>
+              <Input v-model="newField.foreign_table" placeholder="ej: users" />
+            </div>
+            <div class="space-y-2">
+              <Label class="text-xs">Campo referenciado</Label>
+              <Input v-model="newField.foreign_key" placeholder="ej: id" />
+            </div>
+          </div>
+
+          <!-- Campo default -->
+          <div class="md:col-span-2 lg:col-span-3 space-y-2">
+            <Label class="text-xs">Valor por defecto (opcional)</Label>
+            <Input v-model="newField.default" placeholder="ej: null, 0, ''" />
+          </div>
+
+          <div class="md:col-span-2 lg:col-span-3 flex justify-end">
+            <Button type="button" @click="addField">Agregar Campo</Button>
+          </div>
         </div>
-        <ul class="divide-y divide-gray-200">
-          <li v-for="(field, idx) in model.fillable" :key="idx" class="flex items-center justify-between py-1 group">
-            <span class="font-mono text-sm">{{ field.name }} <span class="text-gray-400">({{ field.type }})</span></span>
-            <button type="button" class="btn btn-xs btn-error opacity-0 group-hover:opacity-100 transition" @click="removeField(idx)">Eliminar</button>
-          </li>
-        </ul>
-        <span v-if="errors.fillable" class="text-red-500 text-xs mt-1 block">{{ errors.fillable }}</span>
+
+        <!-- Lista de campos -->
+        <div class="space-y-2">
+          <div v-for="(field, idx) in model.fillable" :key="idx" class="flex items-center justify-between p-3 bg-white/30 dark:bg-black/30 backdrop-blur-sm rounded-lg border border-border/50 group shadow-sm">
+            <div class="flex-1">
+              <div class="flex items-center space-x-3">
+                <span class="font-mono text-sm font-medium text-foreground">{{ field.name }}</span>
+                <span class="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{{ field.type }}</span>
+                <span class="text-sm text-muted-foreground">{{ field.label }}</span>
+              </div>
+              <div class="flex flex-wrap gap-1 mt-1">
+                <span v-if="field.nullable" class="text-xs px-1 py-0.5 bg-muted/50 text-muted-foreground rounded">nullable</span>
+                <span v-if="field.unique" class="text-xs px-1 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded">unique</span>
+                <span v-if="field.index" class="text-xs px-1 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded">index</span>
+                <span v-if="field.primary" class="text-xs px-1 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded">primary</span>
+                <span v-if="field.auto_increment" class="text-xs px-1 py-0.5 bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded">auto_increment</span>
+                <span v-if="field.foreign" class="text-xs px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded">FK → {{ field.foreign_table }}.{{ field.foreign_key }}</span>
+              </div>
+            </div>
+            <button type="button" class="text-destructive hover:text-destructive/80 opacity-0 group-hover:opacity-100 transition px-2 py-1" @click="removeField(idx)">✕</button>
+          </div>
+        </div>
+        <span v-if="errors.fillable" class="text-destructive text-xs mt-2 block">{{ errors.fillable }}</span>
       </div>
 
       <!-- Modificadores de atributo -->
-      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-2">
-        <label class="block text-gray-700 font-semibold mb-3">Modificadores de atributo</label>
-        <div class="flex flex-col gap-3">
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">Nombre</label>
-            <input v-model="newModifier.name" class="rounded-lg border border-gray-300 px-3 py-1 w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition" placeholder="Ej: full_name" />
+      <div class="bg-white/50 dark:bg-black/20 backdrop-blur-sm border border-border rounded-xl p-6 mb-6 shadow-sm">
+        <Label class="text-base font-semibold mb-4 block">Modificadores de atributo (Appends)</Label>
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <Label class="text-xs">Nombre</Label>
+            <Input v-model="newModifier.name" placeholder="Ej: full_name" />
           </div>
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">Tipo</label>
-            <select v-model="newModifier.type" class="rounded-lg border border-gray-300 px-3 py-1 w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition">
-              <option v-for="type in MODIFIER_TYPES" :key="type.id" :value="type.id">{{ type.label }}</option>
-            </select>
+          <div class="space-y-2">
+            <Label class="text-xs">Tipo</Label>
+            <Select v-model="newModifier.type">
+              <SelectTrigger class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="type in MODIFIER_TYPES" :key="type.id" :value="type.id">
+                  {{ type.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">Campos (selecciona uno o más)</label>
-            <select v-model="newModifier.fields" multiple class="rounded-lg border border-gray-300 px-3 py-2 w-full min-h-[90px] max-h-40 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition" size="4">
-              <option v-for="field in availableFields" :key="field.name" :value="field.name">{{ field.name }}</option>
-            </select>
+          <div class="space-y-2">
+            <Label class="text-xs">Campos (selecciona uno o más)</Label>
+            <Select v-model="newModifier.fields" multiple>
+              <SelectTrigger class="w-full min-h-[90px] max-h-40">
+                <SelectValue placeholder="Selecciona campos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="field in availableFields" :key="field.name" :value="field.name">
+                  {{ field.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <!-- Inputs dinámicos para opciones extra -->
-          <div v-for="opt in selectedModifierType?.options || []" :key="opt.key">
-            <label class="text-xs text-gray-500 mb-1 block">{{ opt.label }}</label>
-            <input
+          <div v-for="opt in selectedModifierType?.options || []" :key="opt.key" class="space-y-2">
+            <Label class="text-xs">{{ opt.label }}</Label>
+            <Input
               v-model="newModifier.options[opt.key]"
               :type="opt.type"
-              class="rounded-lg border border-gray-300 px-3 py-1 w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition"
               :placeholder="opt.optional ? '(opcional)' : ''"
             />
           </div>
           <!-- Selector de relación si el modificador lo requiere -->
-          <div v-if="selectedModifierType?.relationRequired">
-            <label class="text-xs text-gray-500 mb-1 block">Relación</label>
-            <select v-model="newModifier.relation" class="rounded-lg border border-gray-300 px-3 py-1 w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition">
-              <option value="" disabled>Selecciona relación</option>
-              <option v-for="rel in model.relations" :key="rel.name" :value="rel.name">{{ rel.name }}</option>
-            </select>
+          <div v-if="selectedModifierType?.relationRequired" class="space-y-2">
+            <Label class="text-xs">Relación</Label>
+            <Select v-model="newModifier.relation">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Selecciona relación" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="rel in model.relations" :key="rel.name" :value="rel.name">
+                  {{ rel.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div class="flex justify-end mt-2">
-            <button type="button" class="btn btn-primary px-4 py-1 rounded-lg shadow-sm hover:bg-primary-600 transition" @click="addModifier">Agregar modificador</button>
+            <Button type="button" @click="addModifier">Agregar modificador</Button>
           </div>
-          <span v-if="errors.modifier" class="text-red-500 text-xs mt-1 block">{{ errors.modifier }}</span>
+          <span v-if="errors.modifier" class="text-destructive text-xs mt-1 block">{{ errors.modifier }}</span>
         </div>
-        <ul class="divide-y divide-gray-200 mt-3">
-          <li v-for="(mod, idx) in model.appends" :key="idx" class="flex items-center justify-between py-1 group">
-            <span class="font-mono text-sm">{{ mod.name }}
-              <span class="text-gray-400">[{{ mod.type }}]</span>
-              <span class="text-gray-500">({{ mod.fields.join(', ') }})</span>
-              <span v-if="mod.type === 'concatenar' && mod.options && mod.options.separator"> sep: '{{ mod.options.separator }}'</span>
-              <span v-if="mod.type === 'formatear_fecha' && mod.options && mod.options.format"> formato: '{{ mod.options.format }}'</span>
+        <ul class="divide-y divide-border/50 mt-3">
+          <li v-for="(mod, idx) in model.appends" :key="idx" class="flex items-center justify-between py-2 group">
+            <span class="font-mono text-sm text-foreground">{{ mod.name }}
+              <span class="text-muted-foreground">[{{ mod.type }}]</span>
+              <span class="text-muted-foreground">({{ mod.fields.join(', ') }})</span>
+              <span v-if="mod.type === 'concatenar' && mod.options && mod.options.separator" class="text-muted-foreground"> sep: '{{ mod.options.separator }}'</span>
+              <span v-if="mod.type === 'formatear_fecha' && mod.options && mod.options.format" class="text-muted-foreground"> formato: '{{ mod.options.format }}'</span>
             </span>
-            <button type="button" class="btn btn-xs btn-error opacity-0 group-hover:opacity-100 transition" @click="removeModifier(idx)">Eliminar</button>
+            <Button variant="destructive" size="sm" type="button" class="opacity-0 group-hover:opacity-100 transition" @click="removeModifier(idx)">Eliminar</Button>
           </li>
         </ul>
       </div>
 
       <!-- Casts -->
-      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-2">
-        <label class="block text-gray-700 font-semibold mb-2">Casts</label>
+      <div class="bg-white/50 dark:bg-black/20 backdrop-blur-sm border border-border rounded-xl p-6 mb-6 shadow-sm">
+        <Label class="text-base font-semibold mb-4 block">Casts</Label>
         <div class="flex flex-col md:flex-row gap-2 mb-3">
-          <input v-model="newCast.key" class="rounded-lg border border-gray-300 px-3 py-1 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition w-full md:w-1/2" placeholder="Campo" />
-          <input v-model="newCast.type" class="rounded-lg border border-gray-300 px-3 py-1 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition w-full md:w-1/2" placeholder="Tipo (date, array, etc)" />
-          <button type="button" class="btn btn-primary px-4 py-1 rounded-lg shadow-sm hover:bg-primary-600 transition" @click="addCast">Agregar</button>
+          <Input v-model="newCast.key" placeholder="Campo" class="w-full md:w-1/2" />
+          <Input v-model="newCast.type" placeholder="Tipo (date, array, etc)" class="w-full md:w-1/2" />
+          <Button type="button" @click="addCast">Agregar</Button>
         </div>
-        <ul class="divide-y divide-gray-200">
-          <li v-for="(cast, idx) in model.casts" :key="idx" class="flex items-center justify-between py-1 group">
-            <span class="font-mono text-sm">{{ cast.key }}: <span class="text-gray-500">{{ cast.type }}</span></span>
-            <button type="button" class="btn btn-xs btn-error opacity-0 group-hover:opacity-100 transition" @click="removeCast(idx)">Eliminar</button>
+        <ul class="divide-y divide-border/50">
+          <li v-for="(cast, idx) in model.casts" :key="idx" class="flex items-center justify-between py-2 group">
+            <span class="font-mono text-sm text-foreground">{{ cast.key }}: <span class="text-muted-foreground">{{ cast.type }}</span></span>
+            <Button variant="destructive" size="sm" type="button" class="opacity-0 group-hover:opacity-100 transition" @click="removeCast(idx)">Eliminar</Button>
           </li>
         </ul>
       </div>
 
       <!-- Relaciones -->
-      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-2">
-        <label class="block text-gray-700 font-semibold mb-2">Relaciones</label>
+      <div class="bg-white/50 dark:bg-black/20 backdrop-blur-sm border border-border rounded-xl p-6 mb-6 shadow-sm">
+        <Label class="text-base font-semibold mb-4 block">Relaciones</Label>
         <div class="flex flex-col md:flex-row gap-2 mb-3 items-end">
-          <input v-model="newRelation.name" class="rounded-lg border border-gray-300 px-3 py-1 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition w-full md:w-1/2" placeholder="Nombre de la relación (ej: user)" />
-          <select v-model="newRelation.foreignKey" class="rounded-lg border border-gray-300 px-3 py-1 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition w-full md:w-1/2">
-            <option value="" disabled>Selecciona campo clave foránea</option>
-            <option v-for="field in model.fillable" :key="field.name" :value="field.name">{{ field.name }}</option>
-          </select>
-          <button type="button" class="btn btn-primary px-4 py-1 rounded-lg shadow-sm hover:bg-primary-600 transition" @click="addRelation">Agregar</button>
+          <Input v-model="newRelation.name" placeholder="Nombre de la relación (ej: user)" class="w-full md:w-1/2" />
+          <Select v-model="newRelation.foreignKey" class="w-full md:w-1/2">
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona campo clave foránea" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="field in model.fillable" :key="field.name" :value="field.name">
+                {{ field.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button type="button" @click="addRelation">Agregar</Button>
         </div>
-        <ul class="divide-y divide-gray-200">
-          <li v-for="(relation, idx) in model.relations" :key="idx" class="flex items-center justify-between py-1 group">
-            <span class="font-mono text-sm">{{ relation.name }} <span class="text-gray-400">({{ relation.foreignKey }})</span></span>
-            <button type="button" class="btn btn-xs btn-error opacity-0 group-hover:opacity-100 transition" @click="removeRelation(idx)">Eliminar</button>
+        <ul class="divide-y divide-border/50">
+          <li v-for="(relation, idx) in model.relations" :key="idx" class="flex items-center justify-between py-2 group">
+            <span class="font-mono text-sm text-foreground">{{ relation.name }} <span class="text-muted-foreground">({{ relation.foreignKey }})</span></span>
+            <Button variant="destructive" size="sm" type="button" class="opacity-0 group-hover:opacity-100 transition" @click="removeRelation(idx)">Eliminar</Button>
           </li>
         </ul>
       </div>
 
-      <div class="flex justify-end gap-2 mt-6">
-        <button
+      <div class="flex justify-end gap-4 mt-8">
+        <Button
           type="button"
+          variant="outline"
           @click="emits('cancel')"
-          class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
         >
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          class="btn btn-primary px-8 py-2 rounded-lg text-lg font-semibold shadow-md hover:bg-primary-600 transition"
+          class="px-8 py-3 text-lg font-semibold shadow-md"
           :disabled="loading"
         >
-          Crear modelo
-        </button>
+          {{ loading ? 'Creando...' : 'Crear modelo' }}
+        </Button>
       </div>
-      <div v-if="success" class="text-green-600 font-semibold text-center mt-4">{{ success }}</div>
+      <div v-if="success" class="text-green-600 dark:text-green-400 font-semibold text-center mt-4">{{ success }}</div>
     </form>
   </div>
 </template>
