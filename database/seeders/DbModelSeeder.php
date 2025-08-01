@@ -61,49 +61,49 @@ class DbModelSeeder extends Seeder
                             continue;
                         }
                     }
+                    $dbModel = \App\Models\DbModel::updateOrCreate(
+                        ['name' => $model],
+                        [
+                            'table' => $modelInstance->getTable(),
+                            'fillable' => json_encode($fillable),
+                            'appends' => json_encode($appends),
+                            'casts' => json_encode($casts),
+                            'relations' => json_encode($relations),
+                        ]
+                    );
+
+                    // Crear los campos asociados (DbModelField) para cada campo fillable
+                    foreach ($fillable as $fieldName) {
+                        // Determinar el tipo de campo basado en los casts o usar string por defecto
+                        $fieldType = 'string';
+                        if (isset($casts[$fieldName])) {
+                            $fieldType = $this->mapCastToFieldType($casts[$fieldName]);
+                        }
+
+                        // Buscar el tipo de campo en la tabla db_model_field_types
+                        $dbFieldType = \App\Models\DbModelFieldType::where('column_type', $fieldType)->first();
+
+                        if ($dbFieldType) {
+                            \App\Models\DbModelField::updateOrCreate(
+                                [
+                                    'db_model_id' => $dbModel->id,
+                                    'name' => $fieldName
+                                ],
+                                [
+                                    'field_type_id' => $dbFieldType->id,
+                                    'label' => ucwords(str_replace('_', ' ', $fieldName)), // Crear label amigable
+                                    'nullable' => true, // Por defecto asumimos que puede ser null
+                                    'unique' => false,
+                                    'index' => false,
+                                    'primary' => false,
+                                    'auto_increment' => false,
+                                    'foreign' => false,
+                                ]
+                            );
+                        }
+                    }
                 }
 
-                $dbModel = \App\Models\DbModel::updateOrCreate(
-                    ['name' => $model],
-                    [
-                        'table' => strtolower($model),
-                        'fillable' => json_encode($fillable),
-                        'appends' => json_encode($appends),
-                        'casts' => json_encode($casts),
-                        'relations' => json_encode($relations),
-                    ]
-                );
-
-                // Crear los campos asociados (DbModelField) para cada campo fillable
-                foreach ($fillable as $fieldName) {
-                    // Determinar el tipo de campo basado en los casts o usar string por defecto
-                    $fieldType = 'string';
-                    if (isset($casts[$fieldName])) {
-                        $fieldType = $this->mapCastToFieldType($casts[$fieldName]);
-                    }
-
-                    // Buscar el tipo de campo en la tabla db_model_field_types
-                    $dbFieldType = \App\Models\DbModelFieldType::where('column_type', $fieldType)->first();
-
-                    if ($dbFieldType) {
-                        \App\Models\DbModelField::updateOrCreate(
-                            [
-                                'db_model_id' => $dbModel->id,
-                                'name' => $fieldName
-                            ],
-                            [
-                                'field_type_id' => $dbFieldType->id,
-                                'label' => ucwords(str_replace('_', ' ', $fieldName)), // Crear label amigable
-                                'nullable' => true, // Por defecto asumimos que puede ser null
-                                'unique' => false,
-                                'index' => false,
-                                'primary' => false,
-                                'auto_increment' => false,
-                                'foreign' => false,
-                            ]
-                        );
-                    }
-                }
             }
         }
     }
