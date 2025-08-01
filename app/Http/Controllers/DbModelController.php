@@ -134,9 +134,17 @@ class DbModelController extends Controller
         $model = \App\Models\DbModel::with(['fields.fieldType'])->findOrFail($id);
         $fieldTypes = \App\Models\DbModelFieldType::all();
 
-        return Inertia::render('models/Show', [
+        // Leer el contenido del archivo del modelo si existe
+        $modelFileContent = null;
+        $modelPath = app_path("Models/{$model->name}.php");
+        if (file_exists($modelPath)) {
+            $modelFileContent = file_get_contents($modelPath);
+        }
+
+        return Inertia::render('models/Contexts/Show', [
             'model' => $model,
             'fieldTypes' => $fieldTypes,
+            'modelFileContent' => $modelFileContent,
         ]);
     }
 
@@ -145,7 +153,7 @@ class DbModelController extends Controller
         $model = \App\Models\DbModel::with(['fields.fieldType'])->findOrFail($id);
         $fieldTypes = \App\Models\DbModelFieldType::all();
 
-        return Inertia::render('models/Edit', [
+        return Inertia::render('models/Contexts/Edit', [
             'model' => $model,
             'fieldTypes' => $fieldTypes,
         ]);
@@ -352,7 +360,14 @@ class DbModelController extends Controller
             'datetime' => 'dateTime',
             'text' => 'text',
             'boolean' => 'boolean',
-            // Agrega más si necesitas
+            'json' => 'json',
+            'jsonb' => 'json',
+            'timestamp' => 'timestamp',
+            'time' => 'time',
+            'uuid' => 'uuid',
+            'binary' => 'binary',
+            'enum' => 'enum',
+            'set' => 'set',
         ];
         $type = strtolower($type);
         return $map[$type] ?? 'string';

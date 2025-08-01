@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\DbModel;
+use App\Models\DbModelField;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -12,6 +14,8 @@ class DbModelSeeder extends Seeder
      */
     public function run(): void
     {
+        DbModelField::query()->delete();
+        DbModel::query()->delete();
         ini_set('memory_limit', '3G');
         $dir = app_path('Models');
         $files = scandir($dir);
@@ -73,39 +77,149 @@ class DbModelSeeder extends Seeder
                     );
 
                     // Crear los campos asociados (DbModelField) para cada campo fillable
-                    foreach ($fillable as $fieldName) {
-                        // Determinar el tipo de campo basado en los casts o usar string por defecto
-                        $fieldType = 'string';
-                        if (isset($casts[$fieldName])) {
-                            $fieldType = $this->mapCastToFieldType($casts[$fieldName]);
-                        }
-
-                        // Buscar el tipo de campo en la tabla db_model_field_types
-                        $dbFieldType = \App\Models\DbModelFieldType::where('column_type', $fieldType)->first();
-
-                        if ($dbFieldType) {
-                            \App\Models\DbModelField::updateOrCreate(
-                                [
-                                    'db_model_id' => $dbModel->id,
-                                    'name' => $fieldName
-                                ],
-                                [
-                                    'field_type_id' => $dbFieldType->id,
-                                    'label' => ucwords(str_replace('_', ' ', $fieldName)), // Crear label amigable
-                                    'nullable' => true, // Por defecto asumimos que puede ser null
-                                    'unique' => false,
-                                    'index' => false,
-                                    'primary' => false,
-                                    'auto_increment' => false,
-                                    'foreign' => false,
-                                ]
-                            );
-                        }
-                    }
+                    $this->createFieldsFromDatabaseSchema($dbModel, $modelInstance->getTable());
                 }
 
             }
         }
+    }
+
+    /**
+     * Crea campos basados en el esquema real de la base de datos
+     */
+    private function createFieldsFromDatabaseSchema($dbModel, $tableName)
+    {
+        // Usar el Schema Builder de Laravel para obtener información de las columnas
+        $columns = \Illuminate\Support\Facades\Schema::getColumnListing($tableName);
+
+        foreach ($columns as $columnName) {
+            // Obtener información detallada de la columna
+            $columnType = \Illuminate\Support\Facades\Schema::getColumnType($tableName, $columnName);
+
+            // Mapear el tipo a nuestros tipos de campo
+            $mappedType = $this->mapLaravelTypeToFieldType($columnType);
+
+            // Buscar el tipo de campo en la tabla db_model_field_types
+            $dbFieldType = \App\Models\DbModelFieldType::where('column_type', $mappedType)->first();
+
+            if ($dbFieldType) {
+                // Obtener información adicional usando consultas SQL directas
+                $columnInfo = $this->getColumnInfo($tableName, $columnName);
+
+                \App\Models\DbModelField::updateOrCreate(
+                    [
+                        'db_model_id' => $dbModel->id,
+                        'name' => $columnName
+                    ],
+                    [
+                        'field_type_id' => $dbFieldType->id,
+                        'label' => ucwords(str_replace('_', ' ', $columnName)),
+                        'nullable' => $columnInfo['nullable'] ?? false,
+                        'unique' => $columnInfo['unique'] ?? false,
+                        'index' => $columnInfo['index'] ?? false,
+                        'primary' => $columnInfo['primary'] ?? false,
+                        'auto_increment' => $columnInfo['auto_increment'] ?? false,
+                        'foreign' => $columnInfo['foreign'] ?? false,
+                        'foreign_table' => $columnInfo['foreign_table'] ?? null,
+                        'foreign_key' => $columnInfo['foreign_key'] ?? null,
+                        'default' => $columnInfo['default'] ?? null,
+                    ]
+                );
+            }
+        }
+    }
+
+    /**
+     * Obtiene información detallada de una columna específica
+     */
+    private function getColumnInfo($tableName, $columnName)
+    {
+        $connection = \Illuminate\Support\Facades\DB::connection();
+        $database = $connection->getDatabaseName();
+
+        // Consultar información de la columna desde INFORMATION_SCHEMA
+        $columnInfo = $connection->select("
+            SELECT
+                COLUMN_NAME,
+                IS_NULLABLE,
+                COLUMN_DEFAULT,
+                COLUMN_KEY,
+                EXTRA
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?
+        ", [$database, $tableName, $columnName]);
+
+        if (empty($columnInfo)) {
+            return [];
+        }
+
+        $column = $columnInfo[0];
+
+        // Verificar foreign keys
+        $foreignKeyInfo = $connection->select("
+            SELECT
+                REFERENCED_TABLE_NAME,
+                REFERENCED_COLUMN_NAME
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL
+        ", [$database, $tableName, $columnName]);
+
+        // Verificar índices únicos
+        $uniqueIndexInfo = $connection->select("
+            SELECT COUNT(*) as count
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? AND NON_UNIQUE = 0 AND INDEX_NAME != 'PRIMARY'
+        ", [$database, $tableName, $columnName]);
+
+        // Verificar índices normales
+        $indexInfo = $connection->select("
+            SELECT COUNT(*) as count
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? AND NON_UNIQUE = 1
+        ", [$database, $tableName, $columnName]);
+
+        return [
+            'nullable' => $column->IS_NULLABLE === 'YES',
+            'primary' => $column->COLUMN_KEY === 'PRI',
+            'unique' => ($uniqueIndexInfo[0]->count ?? 0) > 0,
+            'index' => ($indexInfo[0]->count ?? 0) > 0,
+            'auto_increment' => strpos($column->EXTRA, 'auto_increment') !== false,
+            'foreign' => !empty($foreignKeyInfo),
+            'foreign_table' => $foreignKeyInfo[0]->REFERENCED_TABLE_NAME ?? null,
+            'foreign_key' => $foreignKeyInfo[0]->REFERENCED_COLUMN_NAME ?? null,
+            'default' => $column->COLUMN_DEFAULT,
+        ];
+    }
+
+    /**
+     * Mapea tipos de Laravel a nuestros tipos de campo
+     */
+    private function mapLaravelTypeToFieldType($laravelType)
+    {
+        $typeMap = [
+            'bigint' => 'bigInteger',
+            'int' => 'integer',
+            'integer' => 'integer',
+            'smallint' => 'smallInteger',
+            'tinyint' => 'boolean',
+            'decimal' => 'decimal',
+            'float' => 'float',
+            'double' => 'double',
+            'varchar' => 'string',
+            'char' => 'string',
+            'text' => 'text',
+            'longtext' => 'longText',
+            'mediumtext' => 'mediumText',
+            'date' => 'date',
+            'datetime' => 'dateTime',
+            'timestamp' => 'timestamp',
+            'time' => 'time',
+            'json' => 'json',
+            'blob' => 'binary',
+            'longblob' => 'binary',
+        ];
+
+        return $typeMap[$laravelType] ?? 'string';
     }
 
     /**
