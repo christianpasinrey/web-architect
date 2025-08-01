@@ -45,33 +45,26 @@ onMounted(() => {
     <div
         ref="popoverElement"
         :class="[
-            'absolute z-50 p-4 rounded-lg shadow-lg border max-w-md backdrop-blur-sm',
+            'absolute z-50 py-4 px-2 rounded-lg shadow-lg border max-w-md backdrop-blur-sm',
+            'bg-white dark:bg-black/80 border-sidebar-border/70 dark:border-sidebar-border',
             showAbove ? 'bottom-full mb-2' : 'top-full mt-2'
         ]"
         :style="{
             left: '0',
             right: '0',
-            backgroundColor: 'white',
-            borderColor: 'rgb(229 231 235)',
-            '--tw-shadow': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-            '--tw-shadow-colored': '0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color)',
             boxShadow: 'var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)'
         }"
         @click.stop
     >
         <h4 class="text-sm font-medium mb-3" :style="{ color: 'rgb(55 65 81)' }">Additional Fields:</h4>
-        <div class="space-y-3 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+        <div class="space-y-3 scrollable max-h-64 overflow-y-auto px-2">
             <div
                 v-for="field in fields"
                 :key="field.id"
                 class="flex items-center justify-between text-xs p-2 rounded border transition-colors hover-item"
-                :style="{
-                    backgroundColor: 'rgb(249 250 251)',
-                    borderColor: 'rgb(229 231 235)'
-                }"
             >
                 <div class="flex items-center space-x-2 flex-1 min-w-0">
-                    <span class="font-mono truncate" :style="{ color: 'rgb(17 24 39)' }">{{ field.name }}</span>
+                    <span class="font-mono truncate dark:text-gray-300">{{ field.name }}</span>
                     <div class="flex items-center space-x-1 flex-shrink-0">
                         <Badge v-if="!!field.nullable" variant="secondary" class="text-[10px] px-1 py-0">
                             nullable
@@ -102,5 +95,31 @@ onMounted(() => {
 <style scoped>
 .hover-item:hover {
     background-color: rgb(243 244 246) !important;
+}
+
+.scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollable::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.3s ease;
+}
+
+.scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 </style>

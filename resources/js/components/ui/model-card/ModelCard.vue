@@ -16,6 +16,7 @@ const emits = defineEmits<{
 }>();
 
 const showPopover = ref(false);
+let popoverTimeout: number | null = null;
 
 const getFieldsCount = (model: Model) => {
     return model.fields ? model.fields.length : 0;
@@ -71,17 +72,43 @@ const handleDelete = () => {
 };
 
 const showPopoverOnHover = () => {
+    // Limpiar cualquier timeout pendiente
+    if (popoverTimeout) {
+        clearTimeout(popoverTimeout);
+        popoverTimeout = null;
+    }
     showPopover.value = true;
 };
 
 const hidePopover = () => {
+    // Agregar un delay antes de ocultar el popover
+    popoverTimeout = setTimeout(() => {
+        showPopover.value = false;
+    }, 300); // 300ms de delay para dar tiempo a mover el mouse al popover
+};
+
+const keepPopoverOpen = () => {
+    // Cancelar el timeout si el mouse entra al popover
+    if (popoverTimeout) {
+        clearTimeout(popoverTimeout);
+        popoverTimeout = null;
+    }
+    showPopover.value = true;
+};
+
+const hidePopoverImmediate = () => {
+    // Ocultar inmediatamente cuando se sale del popover
+    if (popoverTimeout) {
+        clearTimeout(popoverTimeout);
+        popoverTimeout = null;
+    }
     showPopover.value = false;
 };
 </script>
 
 <template>
     <Card class="group hover:shadow-lg transition-all duration-200 hover:-translate-y-1 flex flex-col h-full relative">
-        <CardHeader class="border-b border-gray-100 dark:border-gray-700">
+        <CardHeader class="border-b border-sidebar-border/70 dark:border-sidebar-border">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">{{ getModelIcon(model) }}</span>
@@ -145,8 +172,8 @@ const hidePopover = () => {
                             <FieldsPopover
                                 v-if="showPopover"
                                 :fields="remainingFields"
-                                @mouseenter="showPopover = true"
-                                @mouseleave="hidePopover"
+                                @mouseenter="keepPopoverOpen"
+                                @mouseleave="hidePopoverImmediate"
                             />
                         </div>
                     </div>
@@ -160,13 +187,13 @@ const hidePopover = () => {
             <div class="flex space-x-2 pt-4 mt-auto">
                 <button
                     @click="handleView"
-                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm"
+                    class="flex-1 px-3 py-2 border border-sidebar-border/70 dark:border-sidebar-border text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm"
                 >
                     View
                 </button>
                 <button
                     @click="handleEdit"
-                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm"
+                    class="flex-1 px-3 py-2 border border-sidebar-border/70 dark:border-sidebar-border text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm"
                 >
                     Edit
                 </button>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 interface Props {
   code?: string;
@@ -14,35 +16,73 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const codeContainer = ref<HTMLElement>();
+const detectedLanguage = ref<string>('');
 
-// Resaltado básico de sintaxis PHP
-const highlightPHP = (code: string) => {
-  return code
-    .replace(/(&lt;\?php|&lt;\?)/g, '<span class="text-blue-600 font-semibold">$1</span>')
-    .replace(/(namespace|use|class|extends|function|public|protected|private|return|if|else|foreach|for|while|do|switch|case|break|continue|try|catch|finally)/g, '<span class="text-purple-600 font-semibold">$1</span>')
-    .replace(/(\$[a-zA-Z_][a-zA-Z0-9_]*)/g, '<span class="text-green-600">$1</span>')
-    .replace(/(\/\/.*$)/gm, '<span class="text-gray-500 italic">$1</span>')
-    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="text-gray-500 italic">$1</span>')
-    .replace(/('.*?'|".*?")/g, '<span class="text-amber-600">$1</span>')
-    .replace(/(\d+)/g, '<span class="text-blue-500">$1</span>')
-    .replace(/(true|false|null)/g, '<span class="text-red-500 font-semibold">$1</span>');
+// Auto-detectar el tipo de contenido
+const detectLanguage = (code: string): string => {
+  const trimmed = code.trim();
+
+  // Si el código viene como JSON string, intentar extraer el contenido
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      // Si tiene una propiedad que contiene código PHP
+      if (typeof parsed === 'object' && parsed.modelFileContent) {
+        const content = parsed.modelFileContent;
+        if (content.includes('<?php') || content.includes('namespace') || content.includes('class ')) {
+          return 'php';
+        }
+      }
+      // Si es un JSON válido sin contenido PHP, es JSON
+      return 'json';
+    } catch {
+      // No es JSON válido, continuar con la detección normal
+    }
+  }
+
+  // Detectar PHP directamente en el contenido
+  if (trimmed.includes('<?php') || trimmed.includes('namespace') || trimmed.includes('class ') || trimmed.includes('function ') || trimmed.includes('protected ') || trimmed.includes('public ')) {
+    return 'php';
+  }
+
+  // Si el contenido parece JSON pero no es válido
+  if (trimmed.includes('"') && trimmed.includes(':') && (trimmed.includes('{') || trimmed.includes('['))) {
+    return 'json';
+  }
+
+  return props.language;
 };
 
-const escapeHtml = (text: string) => {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+// Extraer el código del contenido si viene en un JSON
+const extractCode = (code: string): string => {
+  const trimmed = code.trim();
+
+  // Si el código viene como JSON string, intentar extraer el modelFileContent
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'object' && parsed.modelFileContent) {
+        return parsed.modelFileContent;
+      }
+    } catch {
+      // No es JSON válido, devolver el código original
+    }
+  }
+
+  return code;
 };
 
 const updateHighlighting = () => {
   if (codeContainer.value && props.code) {
-    const escapedCode = escapeHtml(props.code);
-    const highlightedCode = props.language === 'php' ? highlightPHP(escapedCode) : escapedCode;
-    codeContainer.value.innerHTML = highlightedCode;
-  }
-};
+    const extractedCode = extractCode(props.code);
+    const detectedLang = detectLanguage(props.code);
+    detectedLanguage.value = detectedLang;
 
-onMounted(() => {
+    // Usar highlight.js para el resaltado
+    const result = hljs.highlight(extractedCode, { language: detectedLang });
+    codeContainer.value.innerHTML = result.value;
+  }
+};onMounted(() => {
   updateHighlighting();
 });
 
@@ -65,17 +105,26 @@ watch(() => props.code, () => {
           <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
           <div class="w-3 h-3 bg-green-500 rounded-full"></div>
         </div>
-        <span class="text-sm text-gray-400">{{ (language || 'php').toUpperCase() }}</span>
+        <span class="text-sm text-gray-400">{{ detectedLanguage.toUpperCase() || (language || 'php').toUpperCase() }}</span>
       </div>
       <div class="text-xs text-gray-400">Read Only</div>
     </div>
 
-    <div class="p-4 overflow-auto max-h-96">
+    <div class="p-4 overflow-auto max-h-full">
       <pre
         ref="codeContainer"
-        class="text-sm leading-relaxed whitespace-pre-wrap font-mono"
+        class="text-sm leading-relaxed whitespace-pre-wrap font-mono hljs"
+        :class="`language-${detectedLanguage || language || 'php'}`"
       ></pre>
       <div v-if="!code" class="text-sm text-gray-400 font-mono">No code available</div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Sobrescribir estilos de highlight.js para que se vean bien con nuestro tema oscuro */
+.hljs {
+  background: transparent !important;
+  color: inherit !important;
+}
+</style>

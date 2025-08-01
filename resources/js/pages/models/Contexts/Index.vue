@@ -2,6 +2,7 @@
     import {ref, computed, onMounted} from 'vue';
     import type {Model, FieldType} from '@/types/model';
     import { ModelCard } from '@/components/ui/model-card';
+import Input from '@/components/ui/input/Input.vue';
 
     const props = defineProps<{
         models: Model[];
@@ -68,19 +69,41 @@
 </script>
 <template>
     <div class="flex flex-col p-6 w-full">
-        <!-- Header -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Models</h1>
-            <p class="text-gray-600 dark:text-gray-400">Manage your database models and their structure</p>
+<!-- Quick Stats -->
+        <div v-if="filteredModels.length > 0" class="mt-8 bg-white dark:bg-black/80 rounded-lg border border-sidebar-border/70 dark:border-sidebar-border p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Stats</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600">{{ filteredModels.length }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Models</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">
+                        {{ filteredModels.reduce((acc, model) => acc + getFieldsCount(model), 0) }}
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Fields</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-600">
+                        {{ filteredModels.reduce((acc, model) => acc + (model.fields?.filter(f => !!f.foreign).length || 0), 0) }}
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Foreign Keys</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-orange-600">
+                        {{ filteredModels.reduce((acc, model) => acc + getRelationsCount(model), 0) }}
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Relations</div>
+                </div>
+            </div>
         </div>
-
         <!-- Search and Actions -->
-        <div class="mb-6 flex flex-col sm:flex-row gap-4 bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div class="mb-6 flex flex-col sm:flex-row gap-4 p-4">
             <div class="flex-1">
-                <input
+                <Input
                     v-model="searchQuery"
                     placeholder="Search models by name..."
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    class="w-full"
                 />
             </div>
             <button
@@ -115,33 +138,6 @@
             />
         </div>
 
-        <!-- Quick Stats -->
-        <div v-if="filteredModels.length > 0" class="mt-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Stats</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-blue-600">{{ filteredModels.length }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Models</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-green-600">
-                        {{ filteredModels.reduce((acc, model) => acc + getFieldsCount(model), 0) }}
-                    </div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Fields</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-purple-600">
-                        {{ filteredModels.reduce((acc, model) => acc + (model.fields?.filter(f => !!f.foreign).length || 0), 0) }}
-                    </div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Foreign Keys</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-orange-600">
-                        {{ filteredModels.reduce((acc, model) => acc + getRelationsCount(model), 0) }}
-                    </div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Relations</div>
-                </div>
-            </div>
-        </div>
+
     </div>
 </template>
