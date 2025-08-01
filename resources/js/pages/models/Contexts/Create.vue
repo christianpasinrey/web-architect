@@ -425,29 +425,20 @@ function submit() {
           </div>
           <div class="space-y-2">
             <Label class="text-xs">Tipo</Label>
-            <Select v-model="newModifier.type">
-              <SelectTrigger class="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="type in MODIFIER_TYPES" :key="type.id" :value="type.id">
-                  {{ type.label }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <Select
+              v-model="newModifier.type"
+              :options="MODIFIER_TYPES.map(t => ({ value: t.id, label: t.label }))"
+              placeholder="Selecciona tipo"
+            />
           </div>
           <div class="space-y-2">
             <Label class="text-xs">Campos (selecciona uno o más)</Label>
-            <Select v-model="newModifier.fields" multiple>
-              <SelectTrigger class="w-full min-h-[90px] max-h-40">
-                <SelectValue placeholder="Selecciona campos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="field in availableFields" :key="field.name" :value="field.name">
-                  {{ field.name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <Select
+              v-model="newModifier.fields"
+              :options="availableFields.map(f => ({ value: f.name, label: f.name }))"
+              placeholder="Selecciona campos"
+              multiple
+            />
           </div>
           <!-- Inputs dinámicos para opciones extra -->
           <div v-for="opt in selectedModifierType?.options || []" :key="opt.key" class="space-y-2">
@@ -461,16 +452,11 @@ function submit() {
           <!-- Selector de relación si el modificador lo requiere -->
           <div v-if="selectedModifierType?.relationRequired" class="space-y-2">
             <Label class="text-xs">Relación</Label>
-            <Select v-model="newModifier.relation">
-              <SelectTrigger class="w-full">
-                <SelectValue placeholder="Selecciona relación" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="rel in model.relations" :key="rel.name" :value="rel.name">
-                  {{ rel.name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <Select
+              v-model="newModifier.relation"
+              :options="model.relations.map(r => ({ value: r.name, label: r.name }))"
+              placeholder="Selecciona relación"
+            />
           </div>
           <div class="flex justify-end mt-2">
             <Button type="button" @click="addModifier">Agregar modificador</Button>
@@ -511,16 +497,12 @@ function submit() {
         <Label class="text-base font-semibold mb-4 block">Relaciones</Label>
         <div class="flex flex-col md:flex-row gap-2 mb-3 items-end">
           <Input v-model="newRelation.name" placeholder="Nombre de la relación (ej: user)" class="w-full md:w-1/2" />
-          <Select v-model="newRelation.foreignKey" class="w-full md:w-1/2">
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona campo clave foránea" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="field in model.fillable" :key="field.name" :value="field.name">
-                {{ field.name }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <Select
+            v-model="newRelation.foreignKey"
+            :options="model.fillable.map(f => ({ value: f.name, label: f.name }))"
+            placeholder="Selecciona campo clave foránea"
+            class="w-full md:w-1/2"
+          />
           <Button type="button" @click="addRelation">Agregar</Button>
         </div>
         <ul class="divide-y divide-border/50">
