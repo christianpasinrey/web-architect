@@ -1,38 +1,40 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { usePage, router } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import type { Model, FieldType } from '@/types/model';
 import CodeEditor from '@/components/CodeEditor.vue';
 import FieldCard from '@/components/FieldCard.vue';
 
-const { props } = usePage();
+const props = defineProps<{
+  model: Model;
+  fieldTypes: FieldType[];
+  modelFileContent: string;
+}>();
 
-const model = computed(() => props.model as Model);
-const fieldTypes = computed(() => props.fieldTypes as FieldType[]);
-const modelFileContent = computed(() => props.modelFileContent as string);
+const emits = defineEmits<{
+  (e: 'back'): void;
+  (e: 'edit', model: Model): void;
+  (e: 'delete', model: Model): void;
+}>();
 
 const activeTab = ref<'overview' | 'fields' | 'code'>('overview');
 
 const navigateBack = () => {
-  router.visit('/models');
+  emits('back');
 };
 
 const editModel = () => {
-  router.visit(`/models/${model.value.id}/edit`);
+  emits('edit', props.model);
 };
 
 const deleteModel = () => {
-  if (confirm(`¿Estás seguro de que quieres eliminar el modelo "${model.value.name}"?`)) {
-    router.delete(`/models/${model.value.id}`, {
-      onSuccess: () => {
-        router.visit('/models');
-      }
-    });
+  if (confirm(`¿Estás seguro de que quieres eliminar el modelo "${props.model.name}"?`)) {
+    emits('delete', props.model);
   }
 };
 
 const getModelStats = computed(() => {
-  const fields = model.value.fields || [];
+  const fields = props.model.fields || [];
   return {
     totalFields: fields.length,
     nullableFields: fields.filter((f: any) => !!f.nullable).length,
@@ -44,7 +46,7 @@ const getModelStats = computed(() => {
 
 const parsedRelations = computed(() => {
   try {
-    return JSON.parse(model.value.relations || '[]');
+    return JSON.parse(props.model.relations || '[]');
   } catch {
     return [];
   }
@@ -52,7 +54,7 @@ const parsedRelations = computed(() => {
 
 const parsedAppends = computed(() => {
   try {
-    return JSON.parse(model.value.appends || '[]');
+    return JSON.parse(props.model.appends || '[]');
   } catch {
     return [];
   }
@@ -60,7 +62,7 @@ const parsedAppends = computed(() => {
 
 const parsedCasts = computed(() => {
   try {
-    return JSON.parse(model.value.casts || '{}');
+    return JSON.parse(props.model.casts || '{}');
   } catch {
     return {};
   }
@@ -83,8 +85,8 @@ const parsedCasts = computed(() => {
           </button>
           <div class="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
           <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ model.name }}</h1>
-            <p class="text-sm text-gray-600 dark:text-gray-400">Table: {{ model.table }}</p>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ props.model.name }}</h1>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Table: {{ props.model.table }}</p>
           </div>
         </div>
 
@@ -128,7 +130,7 @@ const parsedCasts = computed(() => {
               : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
           ]"
         >
-          Fields ({{ model.fields?.length || 0 }})
+          Fields ({{ props.model.fields?.length || 0 }})
         </button>
         <button
           @click="activeTab = 'code'"
@@ -239,11 +241,11 @@ const parsedCasts = computed(() => {
             <div class="space-y-2">
               <div class="flex justify-between text-sm">
                 <span class="text-gray-600 dark:text-gray-400">Created:</span>
-                <span class="font-medium text-gray-900 dark:text-white">{{ new Date(model.created_at).toLocaleString() }}</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ new Date(props.model.created_at).toLocaleString() }}</span>
               </div>
               <div class="flex justify-between text-sm">
                 <span class="text-gray-600 dark:text-gray-400">Updated:</span>
-                <span class="font-medium text-gray-900 dark:text-white">{{ new Date(model.updated_at).toLocaleString() }}</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ new Date(props.model.updated_at).toLocaleString() }}</span>
               </div>
             </div>
           </div>
@@ -252,9 +254,9 @@ const parsedCasts = computed(() => {
 
       <!-- Fields Tab -->
       <div v-if="activeTab === 'fields'" class="space-y-4">
-        <div v-if="model.fields && model.fields.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-if="props.model.fields && props.model.fields.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <FieldCard
-            v-for="field in model.fields"
+            v-for="field in props.model.fields"
             :key="field.id"
             :field="field"
           />
@@ -269,7 +271,7 @@ const parsedCasts = computed(() => {
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Generated Model Code</h3>
           <CodeEditor
-            :code="modelFileContent"
+            :code="props.modelFileContent"
             language="php"
             class="w-full"
           />
