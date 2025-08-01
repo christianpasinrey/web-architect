@@ -52,7 +52,7 @@ const MODIFIER_TYPES = [
   {
     id: 'concatenar',
     label: 'Concatenar',
-    inputTypes: ['string'],
+    inputTypes: ['string', 'text', 'varchar', 'char', 'tinyText', 'mediumText', 'longText'],
     minFields: 2,
     options: [
       { key: 'separator', label: 'Separador', type: 'string', optional: true }
@@ -61,7 +61,7 @@ const MODIFIER_TYPES = [
   {
     id: 'formatear_fecha',
     label: 'Formatear fecha',
-    inputTypes: ['date', 'datetime'],
+    inputTypes: ['date', 'datetime', 'timestamp', 'time'],
     minFields: 1,
     options: [
       { key: 'format', label: 'Formato', type: 'string', optional: false }
@@ -70,14 +70,14 @@ const MODIFIER_TYPES = [
   {
     id: 'sumar',
     label: 'Sumar',
-    inputTypes: ['int', 'float', 'bigint', 'decimal'],
+    inputTypes: ['int', 'integer', 'bigint', 'unsignedBigInteger', 'float', 'double', 'decimal'],
     minFields: 2,
     options: []
   },
   {
     id: 'operacion_matematica',
     label: 'Operación matemática',
-    inputTypes: ['int', 'float', 'bigint', 'decimal'],
+    inputTypes: ['int', 'integer', 'bigint', 'unsignedBigInteger', 'float', 'double', 'decimal'],
     minFields: 1,
     options: [
       { key: 'formula', label: 'Fórmula', type: 'string', optional: false }
@@ -86,7 +86,7 @@ const MODIFIER_TYPES = [
   {
     id: 'sumar_dias_relacion',
     label: 'Sumar días de relación a fecha',
-    inputTypes: ['date'],
+    inputTypes: ['date', 'datetime', 'timestamp'],
     minFields: 1,
     relationRequired: true,
     relationFieldType: 'int',
@@ -106,7 +106,6 @@ const FIELD_TYPES = computed(() => {
 const model = reactive({
   name: '',
   table: '',
-  description: '',
   fillable: [] as Field[],
   appends: [] as AttributeModifier[],
   casts: [] as { key: string; type: string }[],
@@ -302,18 +301,6 @@ function submit() {
           />
           <span v-if="errors.table" class="text-destructive text-xs">{{ errors.table }}</span>
         </div>
-      </div>
-
-      <!-- Descripción del modelo -->
-      <div class="space-y-2 mb-6">
-        <Label for="model-description">Descripción del modelo (opcional)</Label>
-        <Textarea
-          id="model-description"
-          v-model="model.description"
-          placeholder="Describe brevemente el propósito de este modelo..."
-          :rows="3"
-          class="resize-none"
-        />
       </div>
 
       <!-- Campos fillable -->
