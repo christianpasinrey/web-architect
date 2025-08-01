@@ -141,7 +141,7 @@ class DbModelController extends Controller
             $modelFileContent = file_get_contents($modelPath);
         }
 
-        return Inertia::render('models/Contexts/Show', [
+        return response()->json([
             'model' => $model,
             'fieldTypes' => $fieldTypes,
             'modelFileContent' => $modelFileContent,

@@ -54,8 +54,7 @@
         />
         <Show
             v-if="viewingModel"
-            :model="viewingModel"
-            :fieldTypes="fieldTypes"
+            :modelId="viewingModel.id"
             @back="handleCancel"
         />
     </AppLayout>

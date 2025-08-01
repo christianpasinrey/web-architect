@@ -1,7 +1,7 @@
 <script setup lang="ts">
     import {ref, computed, onMounted} from 'vue';
-    import { router } from '@inertiajs/vue3';
     import type {Model, FieldType} from '@/types/model';
+    import { ModelCard } from '@/components/ui/model-card';
 
     const props = defineProps<{
         models: Model[];
@@ -32,9 +32,7 @@
     };
 
     const deleteModel = (model: Model) => {
-        if (confirm(`¿Estás seguro de que quieres eliminar el modelo "${model.name}"?`)) {
-            emits('delete', model);
-        }
+        emits('delete', model);
     };
 
     const getFieldsCount = (model: Model) => {
@@ -42,23 +40,25 @@
     };
 
     const getRelationsCount = (model: Model) => {
+        if (!model.relations) return 0;
+
+        // Si es un objeto (Proxy de Laravel con las relaciones de Eloquent)
+        if (typeof model.relations === 'object' && !Array.isArray(model.relations)) {
+            return Object.keys(model.relations).length;
+        }
+
+        // Si ya es un array, usar directamente
+        if (Array.isArray(model.relations)) {
+            return model.relations.length;
+        }
+
+        // Si es una cadena, intentar parsear como JSON
         try {
-            const relations = JSON.parse(model.relations || '[]');
-            return Array.isArray(relations) ? relations.length : 0;
+            const relations = JSON.parse(model.relations);
+            return Array.isArray(relations) ? relations.length : Object.keys(relations).length;
         } catch {
             return 0;
         }
-    };
-
-    const getModelIcon = (model: Model) => {
-        const hasRelations = getRelationsCount(model) > 0;
-        const hasAppends = model.appends && model.appends !== '[]';
-        const hasCasts = model.casts && model.casts !== '{}';
-
-        if (hasRelations && hasAppends) return '🔗';
-        if (hasRelations) return '🗂️';
-        if (hasAppends || hasCasts) return '⚡';
-        return '📄';
     };
 
     onMounted(() => {
@@ -105,90 +105,14 @@
         </div>
 
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <div
+            <ModelCard
                 v-for="model in filteredModels"
                 :key="model.id"
-                class="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-lg transition-all duration-200 hover:-translate-y-1 flex flex-col"
-            >
-                <!-- Model Header -->
-                <div class="p-6 border-b border-gray-100 dark:border-gray-700">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center space-x-3">
-                            <span class="text-2xl">{{ getModelIcon(model) }}</span>
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                                    {{ model.name }}
-                                </h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ model.table }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Stats -->
-                    <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                        <div class="flex items-center space-x-1">
-                            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
-                            <span>{{ getFieldsCount(model) }} fields</span>
-                        </div>
-                        <div class="flex items-center space-x-1">
-                            <span class="w-2 h-2 bg-purple-500 rounded-full"></span>
-                            <span>{{ model.fields?.filter(f => !!f.foreign).length || 0 }} foreign keys</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Fields Preview -->
-                <div class="p-6 flex-1 flex flex-col">
-                    <div class="flex-1">
-                        <div v-if="model.fields && model.fields.length > 0" class="mb-4">
-                            <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Fields Preview:</h4>
-                            <div class="space-y-2">
-                                <div
-                                    v-for="field in model.fields.slice(0, 4)"
-                                    :key="field.id"
-                                    class="flex items-center justify-between text-xs"
-                                >
-                                    <div class="flex items-center space-x-2">
-                                        <span class="font-mono text-gray-900 dark:text-white">{{ field.name }}</span>
-                                        <span v-if="!!field.nullable" class="px-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300 rounded text-[10px]">nullable</span>
-                                        <span v-if="!!field.unique" class="px-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded text-[10px]">unique</span>
-                                        <span v-if="!!field.foreign" class="px-1 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 rounded text-[10px]">FK</span>
-                                    </div>
-                                    <span class="text-gray-400 dark:text-gray-500 font-mono text-[10px]">{{ field.field_type.column_type }}</span>
-                                </div>
-                                <div v-if="model.fields.length > 4" class="text-xs text-gray-400 dark:text-gray-500 text-center pt-1">
-                                    +{{ model.fields.length - 4 }} more fields
-                                </div>
-                            </div>
-                        </div>
-                        <div v-else class="mb-4 text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                            No fields defined
-                        </div>
-                    </div>
-
-                    <!-- Actions -->
-                    <div class="flex space-x-2 pt-4 mt-auto">
-                        <button
-                            @click="viewModel(model)"
-                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm"
-                        >
-                            View
-                        </button>
-                        <button
-                            @click="editModel(model)"
-                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm"
-                        >
-                            Edit
-                        </button>
-                        <button
-                            @click="deleteModel(model)"
-                            class="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
-                        >
-                            🗑️
-                        </button>
-                    </div>
-                </div>
-            </div>
+                :model="model"
+                @view="viewModel"
+                @edit="editModel"
+                @delete="deleteModel"
+            />
         </div>
 
         <!-- Quick Stats -->

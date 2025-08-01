@@ -19,6 +19,16 @@ class DbModel extends Model
         'relations',
     ];
 
+    protected $casts = [
+        'fillable' => 'array',
+        'guarded' => 'array',
+        'with' => 'array',
+        'hidden' => 'array',
+        'appends' => 'array',
+        'casts' => 'array',
+        'relations' => 'array',
+    ];
+
     public function fields()
     {
         return $this->hasMany(DbModelField::class, 'db_model_id');
