@@ -1,6 +1,6 @@
 <script setup lang="ts">
     import {ref, defineAsyncComponent} from 'vue';
-    import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+    import AppLayout from '@/layouts/AppLayout.vue';
     import { usePage } from '@inertiajs/vue3';
     import type { Model, FieldType } from '@/types/model';
     const creatingModel = ref(false);
@@ -17,8 +17,8 @@
     console.log('Field Types:', fieldTypes.value);
 </script>
 <template>
-    <AuthenticatedLayout>
+    <AppLayout>
         <Index v-if="!creatingModel && !editingModel" :models="models" :fieldTypes="fieldTypes" @create="creatingModel = true" />
         <Create v-if="creatingModel" :fieldTypes="fieldTypes" @cancel="creatingModel = false" />
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>
